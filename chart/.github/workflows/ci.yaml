@@ -1,0 +1,63 @@
+on:
+  push:
+    branches: [ develop ]
+  pull_request:
+    branches: [ develop ]
+  create:
+    tags: 'v*'
+
+env:
+  HELM_EXPERIMENTAL_OCI: 1
+  HELM_VERSION_TO_INSTALL: 3.5.0
+
+jobs:
+  lint-pack-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v1
+      
+      - name: set GITHUB_REPOSITORY env variable
+        run: echo REPOSITORY_NAME=$(echo "$GITHUB_REPOSITORY" | awk -F / '{print $2}') >> $GITHUB_ENV
+      
+      - name: Install GitVersion
+        uses: gittools/actions/gitversion/setup@v0.9.7
+        with:
+          versionSpec: '5.5.0'
+
+      - name: Compute version numbers
+        id:   gitversion
+        uses: gittools/actions/gitversion/execute@v0.9.7
+
+      # Replace the version parameter with the version provided by previous step
+      - uses: cschleiden/replace-tokens@v1
+        with:
+          files: '["chart/Chart.yaml"]'
+
+      - name: install helm
+        uses: Azure/setup-helm@v1
+        with:
+          version: ${{ env.HELM_VERSION_TO_INSTALL }}
+      
+      - name: push chart to dev acr
+        env:
+          ACR_PASSWORD: ${{ secrets.DIVA_DEV_ACR_PASSWORD }}
+          ACR_USERNAME: ${{ secrets.DIVA_DEV_ACR_USERNAME }}
+          ACR_PREFIX: ottregistrydev
+        run: |
+          echo $ACR_PASSWORD | helm registry login $ACR_PREFIX.azurecr.io --username $ACR_USERNAME --password-stdin ;
+          helm chart save ./chart $ACR_PREFIX.azurecr.io/$REPOSITORY_NAME/helm:latest ;
+          helm chart push $ACR_PREFIX.azurecr.io/$REPOSITORY_NAME/helm:latest
+
+      - if: ${{ env.GITVERSION_PRERELEASETAG == '' }}
+        name: push chart to dev acr
+        env:
+          ACR_PASSWORD: ${{ secrets.DIVA_PRD_ACR_PASSWORD }}
+          ACR_USERNAME: ${{ secrets.DIVA_PRD_ACR_USERNAME }}
+          ACR_PREFIX: ottregistryprd
+        run: |
+          echo $ACR_PASSWORD | helm registry login $ACR_PREFIX.azurecr.io --username $ACR_USERNAME --password-stdin ;
+          helm chart save ./chart $ACR_PREFIX.azurecr.io/$REPOSITORY_NAME/helm:latest ;
+          helm chart push $ACR_PREFIX.azurecr.io/$REPOSITORY_NAME/helm:latest
+

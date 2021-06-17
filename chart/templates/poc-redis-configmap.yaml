@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Chart.Name }}
+data:
+  redis.conf: |+
+    protected-mode no
+    appendonly yes
+    appendfsync {{ .Values.component.appendfsync }}

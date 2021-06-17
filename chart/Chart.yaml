@@ -1,0 +1,11 @@
+apiVersion: v2
+
+name: platform-lab-redis
+description: Simple Redis Helm chart
+
+type: application
+
+version: 0.1.0
+appVersion: "5.0.9"
+
+icon: https://bit.ly/31kRAsa

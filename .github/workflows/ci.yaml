@@ -1,0 +1,23 @@
+on:
+  pull_request:
+    branches: [ main ]
+
+env:
+  HELM_VERSION_TO_INSTALL: 3.5.0
+
+jobs:
+  helm-validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v1
+      
+      - name: install helm
+        uses: Azure/setup-helm@v1
+        with:
+          version: ${{ env.HELM_VERSION_TO_INSTALL }}
+      
+      - name: helm lint
+        run: |
+          helm lint ./chart

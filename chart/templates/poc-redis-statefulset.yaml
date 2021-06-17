@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Chart.Name }}
+spec:
+  serviceName: {{ .Chart.Name }}
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Chart.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Chart.Name }}
+      {{ if .Values.component.vault.enabled }}
+      annotations:
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/tls-skip-verify: "true"
+        vault.hashicorp.com/agent-pre-populate-only: "true"
+        vault.hashicorp.com/agent-init-first: "true"
+        vault.hashicorp.com/agent-inject-secret-redis.env: {{ .Values.component.vault.secret }}
+        vault.hashicorp.com/agent-inject-template-redis.env: |
+          {{`{{- with secret `}}"{{ .Values.component.vault.secret }}{{`" -}}
+          export REDIS_PASSWORD={{ .Data.password }}
+          {{- end }}`}}
+        vault.hashicorp.com/role: {{ .Values.component.vault.role }}
+        {{ end }}
+    spec:
+      containers:
+      - name: redis
+        image: redis:{{ .Chart.AppVersion }}
+        imagePullPolicy: IfNotPresent
+        command: ['sh', '-c']
+        args:
+          -
+           $(cat /vault/secrets/redis.env);
+           redis-server /conf/redis.conf --requirepass ${REDIS_PASSWORD};
+        ports:
+        - containerPort: 6379
+          name: client
+        
+        volumeMounts:
+        - name: conf
+          mountPath: /conf
+          readOnly: false
+        - name: data
+          mountPath: /data
+          readOnly: false
+      volumes:
+      - name: conf
+        configMap:
+          name: {{ .Chart.Name }}
+          defaultMode: 0755
+      serviceAccountName: {{ .Values.component.serviceAccount }}
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: {{ .Values.component.volume.quota }}

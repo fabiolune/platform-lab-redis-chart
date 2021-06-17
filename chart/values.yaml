@@ -1,0 +1,19 @@
+component:
+
+    appendfsync: everysec
+
+    volume:
+        quota: 500Mi
+
+    vault:
+        enabled: true
+        
+        # required for vault policy matching, i.e. poc-persistence
+        role: 'poc-persistence'
+
+        # secret containing the authentication parameter, i.e. poc/persistence/redis
+        secret: 'poc/persistence/redis'
+
+
+    # this is required for authentication against vault, i.e. poc-redis
+    serviceAccount: 'poc-redis'
